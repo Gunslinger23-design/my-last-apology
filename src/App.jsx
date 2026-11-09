@@ -1,217 +1,170 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import HeroSection from './components/HeroSection'
-import LetterSection from './components/LetterSection'
-import LyricsOverlay from './components/LyricsOverlay'
+import { motion, AnimatePresence } from 'framer-motion'
+import HeroSection      from './components/HeroSection'
+import MiniPlayer       from './components/MiniPlayer'
+import LetterSection    from './components/LetterSection'
+import LyricsOverlay    from './components/LyricsOverlay'
 import BotanicalBackground from './components/BotanicalBackground'
 
-// ─── Audio hook ──────────────────────────────────────────────────────────────
+// ─── Audio hook ───────────────────────────────────────────────────────────────
 function useAudio(src) {
-  const audioRef = useRef(null)
-  const [isPlaying, setIsPlaying]   = useState(false)
-  const [isLoaded,  setIsLoaded]    = useState(false)
-  const [progress,  setProgress]    = useState(0)
-  const [duration,  setDuration]    = useState(0)
-  const rafRef = useRef(null)
+  const audioRef  = useRef(null)
+  const rafRef    = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [progress,  setProgress]  = useState(0)
+  const [duration,  setDuration]  = useState(0)
 
-  // Initialize audio element lazily
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
-      audioRef.current = new Audio(src)
-      audioRef.current.loop = false
+      audioRef.current        = new Audio(src)
       audioRef.current.preload = 'metadata'
     }
     return audioRef.current
   }, [src])
 
-  const updateProgress = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    setProgress(audio.currentTime)
-    if (!audio.paused) {
-      rafRef.current = requestAnimationFrame(updateProgress)
-    }
+  const tick = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    setProgress(a.currentTime)
+    if (!a.paused) rafRef.current = requestAnimationFrame(tick)
   }, [])
 
   const play = useCallback(async () => {
-    const audio = getAudio()
+    const a = getAudio()
     try {
-      await audio.play()
+      await a.play()
       setIsPlaying(true)
-      rafRef.current = requestAnimationFrame(updateProgress)
-    } catch (err) {
-      console.warn('Audio play failed:', err)
-    }
-  }, [getAudio, updateProgress])
+      rafRef.current = requestAnimationFrame(tick)
+    } catch (e) { console.warn('Audio play failed:', e) }
+  }, [getAudio, tick])
 
   const pause = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.pause()
+    audioRef.current?.pause()
     setIsPlaying(false)
     cancelAnimationFrame(rafRef.current)
   }, [])
 
   const toggle = useCallback(() => {
-    if (isPlaying) pause()
-    else play()
+    isPlaying ? pause() : play()
   }, [isPlaying, play, pause])
 
-  // Set up metadata / ended listeners once
+  const seek = useCallback((time) => {
+    const a = audioRef.current
+    if (!a) return
+    a.currentTime = time
+    setProgress(time)
+  }, [])
+
   useEffect(() => {
-    const audio = getAudio()
-
-    const onLoaded = () => {
-      setIsLoaded(true)
-      setDuration(audio.duration)
-    }
-    const onEnded = () => {
-      setIsPlaying(false)
-      setProgress(0)
-      cancelAnimationFrame(rafRef.current)
-    }
-
-    audio.addEventListener('loadedmetadata', onLoaded)
-    audio.addEventListener('ended', onEnded)
-
+    const a = getAudio()
+    const onMeta  = () => setDuration(a.duration)
+    const onEnded = () => { setIsPlaying(false); setProgress(0); cancelAnimationFrame(rafRef.current) }
+    a.addEventListener('loadedmetadata', onMeta)
+    a.addEventListener('ended', onEnded)
     return () => {
-      audio.removeEventListener('loadedmetadata', onLoaded)
-      audio.removeEventListener('ended', onEnded)
+      a.removeEventListener('loadedmetadata', onMeta)
+      a.removeEventListener('ended', onEnded)
       cancelAnimationFrame(rafRef.current)
     }
   }, [getAudio])
 
-  return { isPlaying, isLoaded, progress, duration, play, pause, toggle }
+  return { isPlaying, progress, duration, play, pause, toggle, seek }
 }
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [started,    setStarted]    = useState(false)
-  const [heroOpacity, setHeroOpacity] = useState(1)
-  const containerRef = useRef(null)
-
+  const [started, setStarted] = useState(false)
   const audio = useAudio('/assets/song.mp3')
 
-  // Handle the initial "start" interaction (also unlocks AudioContext)
   const handleStart = useCallback(async () => {
     setStarted(true)
     await audio.play()
   }, [audio])
 
-  // Fade hero as user scrolls
-  useEffect(() => {
-    if (!started) return
-    const container = containerRef.current
-    if (!container) return
-
-    const onScroll = () => {
-      const scrollY = container.scrollTop
-      const windowH = window.innerHeight
-      const opacity = Math.max(0, 1 - scrollY / (windowH * 0.6))
-      setHeroOpacity(opacity)
-    }
-
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [started])
-
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full min-h-screen overflow-y-auto overflow-x-hidden bg-moody-dark"
-      style={{ maxWidth: '100vw' }}
-    >
-      {/* Botanical background — always present, fixed */}
+    <div className="relative w-full h-screen overflow-hidden bg-moody-dark">
       <BotanicalBackground />
 
-      {/* Persistent vignette overlay */}
+      {/* Global vignette */}
       <div
         className="fixed inset-0 pointer-events-none z-10"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, transparent 30%, rgba(10,5,2,0.7) 100%)',
-        }}
+        style={{ background: 'radial-gradient(ellipse at center, transparent 30%, rgba(10,5,2,0.65) 100%)' }}
       />
 
-      {/* Hero — fixed while not scrolled, then becomes sticky */}
-      <div
-        className="fixed inset-0 z-20 flex flex-col items-center justify-center"
-        style={{ opacity: heroOpacity, transition: 'opacity 0.1s linear' }}
-      >
-        <HeroSection
-          started={started}
-          onStart={handleStart}
-          isPlaying={audio.isPlaying}
-          onToggle={audio.toggle}
-          progress={audio.progress}
-          duration={audio.duration}
-        />
-      </div>
-
-      {/* Spacer so scroll begins after hero */}
-      <div className="h-screen" />
-
-      {/* Letter scrollytelling */}
+      {/* ── HERO (before start) ── */}
       <AnimatePresence>
-        {started && (
+        {!started && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.5, delay: 0.5 }}
-            className="relative z-30 pb-32"
+            key="hero"
+            className="fixed inset-0 z-30 flex items-center justify-center"
+            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.6, ease: 'easeIn' } }}
           >
-            <LetterSection />
+            <HeroSection onStart={handleStart} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Lyrics overlay — bottom fixed banner */}
+      {/* ── MAIN VIEW (after start) ── */}
       <AnimatePresence>
         {started && (
-          <LyricsOverlay
-            isPlaying={audio.isPlaying}
-            progress={audio.progress}
-            duration={audio.duration}
-          />
-        )}
-      </AnimatePresence>
+          <>
+            {/* Mini player — fixed top bar */}
+            <motion.div
+              key="miniplayer"
+              className="fixed top-0 left-0 right-0 z-50"
+              initial={{ y: -100, opacity: 0 }}
+              animate={{ y: 0,    opacity: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+            >
+              <MiniPlayer
+                isPlaying={audio.isPlaying}
+                onToggle={audio.toggle}
+                progress={audio.progress}
+                duration={audio.duration}
+                onSeek={audio.seek}
+              />
+            </motion.div>
 
-      {/* Floating mini-player (visible after scroll starts) */}
-      <AnimatePresence>
-        {started && heroOpacity < 0.5 && (
-          <motion.button
-            key="miniplayer"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.4 }}
-            onClick={audio.toggle}
-            className="fixed top-4 right-4 z-50 w-10 h-10 rounded-full bg-moody-amber/90 flex items-center justify-center shadow-lg box-glow-sm"
-            aria-label={audio.isPlaying ? 'Pausar' : 'Reproducir'}
-          >
-            {audio.isPlaying ? (
-              <PauseIcon />
-            ) : (
-              <PlayIcon />
-            )}
-          </motion.button>
+            {/* Scrollable letter — full viewport, masked at top & bottom */}
+            <motion.div
+              key="letter"
+              className="fixed inset-0 z-20 overflow-y-auto overflow-x-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              style={{
+                // Top mask fades 80px (miniplayer) → 130px (fully visible)
+                // Bottom mask fades 80px (lyrics bar)
+                maskImage:
+                  'linear-gradient(to bottom, transparent 0px, transparent 76px, black 130px, black calc(100% - 72px), transparent 100%)',
+                WebkitMaskImage:
+                  'linear-gradient(to bottom, transparent 0px, transparent 76px, black 130px, black calc(100% - 72px), transparent 100%)',
+              }}
+            >
+              {/* Spacer so first block starts visually below the mini player */}
+              <div className="h-36" />
+              <LetterSection />
+              {/* Extra bottom space above lyrics bar */}
+              <div className="h-28" />
+            </motion.div>
+
+            {/* Lyrics overlay — fixed bottom */}
+            <motion.div
+              key="lyrics"
+              className="fixed bottom-0 left-0 right-0 z-40"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <LyricsOverlay
+                isPlaying={audio.isPlaying}
+                progress={audio.progress}
+                duration={audio.duration}
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
-  )
-}
-
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-moody-dark">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  )
-}
-function PauseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-moody-dark">
-      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-    </svg>
   )
 }
