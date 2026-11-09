@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-moody-dark text-moody-cream;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 3px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-moody-dark;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-moody-amber rounded-full;
+  }
+}
+
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 40px rgba(198, 139, 47, 0.4);
+  }
+  .text-shadow-soft {
+    text-shadow: 0 2px 20px rgba(0,0,0,0.6);
+  }
+  .box-glow-amber {
+    box-shadow: 0 0 60px rgba(198, 139, 47, 0.15), 0 0 120px rgba(198, 139, 47, 0.08);
+  }
+  .box-glow-sm {
+    box-shadow: 0 0 20px rgba(198, 139, 47, 0.2);
+  }
+  .vinyl-gradient {
+    background: conic-gradient(
+      from 0deg,
+      #1A0E06 0deg,
+      #2E1A0A 60deg,
+      #4A2C11 120deg,
+      #2E1A0A 180deg,
+      #1A0E06 240deg,
+      #2E1A0A 300deg,
+      #1A0E06 360deg
+    );
+  }
+}
+
+/* Prevent horizontal overflow on mobile */
+* {
+  box-sizing: border-box;
+}
