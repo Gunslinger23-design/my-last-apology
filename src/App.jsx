@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import HeroSection      from './components/HeroSection'
 import MiniPlayer       from './components/MiniPlayer'
 import LetterSection    from './components/LetterSection'
-import LyricsOverlay    from './components/LyricsOverlay'
 import BotanicalBackground from './components/BotanicalBackground'
 
 // ─── Audio hook ───────────────────────────────────────────────────────────────
@@ -125,7 +124,7 @@ export default function App() {
               />
             </motion.div>
 
-            {/* Scrollable letter — full viewport, masked at top & bottom */}
+            {/* Scrollable letter — full viewport, masked at top so it fades before touching player */}
             <motion.div
               key="letter"
               className="fixed inset-0 z-20 overflow-y-auto overflow-x-hidden"
@@ -133,34 +132,18 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
               style={{
-                // Top mask fades 80px (miniplayer) → 130px (fully visible)
-                // Bottom mask fades 80px (lyrics bar)
+                // Top mask fades out 74px (miniplayer margin) to 135px (full visibility)
                 maskImage:
-                  'linear-gradient(to bottom, transparent 0px, transparent 76px, black 130px, black calc(100% - 72px), transparent 100%)',
+                  'linear-gradient(to bottom, transparent 0px, transparent 74px, black 135px, black calc(100% - 24px), transparent 100%)',
                 WebkitMaskImage:
-                  'linear-gradient(to bottom, transparent 0px, transparent 76px, black 130px, black calc(100% - 72px), transparent 100%)',
+                  'linear-gradient(to bottom, transparent 0px, transparent 74px, black 135px, black calc(100% - 24px), transparent 100%)',
               }}
             >
-              {/* Spacer so first block starts visually below the mini player */}
-              <div className="h-36" />
+              {/* Espacio inicial para que el primer bloque empiece debajo del reproductor */}
+              <div className="h-32" />
               <LetterSection />
-              {/* Extra bottom space above lyrics bar */}
-              <div className="h-28" />
-            </motion.div>
-
-            {/* Lyrics overlay — fixed bottom */}
-            <motion.div
-              key="lyrics"
-              className="fixed bottom-0 left-0 right-0 z-40"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
-            >
-              <LyricsOverlay
-                isPlaying={audio.isPlaying}
-                progress={audio.progress}
-                duration={audio.duration}
-              />
+              {/* Espacio inferior de desahogo al final de la lectura */}
+              <div className="h-20" />
             </motion.div>
           </>
         )}
